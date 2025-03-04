@@ -5,7 +5,7 @@ from aiogram.types.message import Message
 from aiogram.filters import Command
 
 
-from config import BOT_TOKEN
+from src.config import BOT_TOKEN
 
 
 dp = Dispatcher()
