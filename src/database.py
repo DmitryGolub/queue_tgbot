@@ -19,18 +19,15 @@ def connection_to_db(func):
 
 
             cursor.execute("""
-                           CREATE TABLE users (
-                           telegram_id INTEGER PRIMARY KEY,
-                           username VARCHAR(255) NOT NULL,
+                           CREATE TABLE IF NOT EXISTS users (
+                           telegram_id BIGINT PRIMARY KEY,
                            name VARCHAR(255) NOT NULL
                            );
                            """)
             
-            cursor.execute("""CREATE TABLE notice (
-                           telegram_id INTEGER NOT NULL,
-                           message_id INTEGER NOT NULL,
-                           FOREIGN KEY (telegram_id) REFERENCES users(telegram_id),
-                           PRIMARY KEY (telegram_id, message_id)
+            cursor.execute("""CREATE TABLE IF NOT EXISTS notices (
+                           telegram_id BIGINT PRIMARY KEY,
+                           message_id INTEGER NOT NULL
                            );
                            """)
 
@@ -46,6 +43,65 @@ def connection_to_db(func):
 
 
 @connection_to_db
-def test():
-    print("OK")
+def add_user(cursor, telegram_id, name) -> None:
+    cursor.execute(f"""SELECT * FROM users WHERE telegram_id = {telegram_id};""")
+    if not cursor.fetchall():
+        cursor.execute(f"""
+                    INSERT INTO users (telegram_id, name)
+                    VALUES ({telegram_id}, '{name}');
+                    """)
+        return f"Вы успешно авторизовались, {name}"
     
+    else:
+        return "Пользователь уже существует"
+
+
+@connection_to_db
+def get_users(cursor) -> list:
+    cursor.execute(f"""SELECT telegram_id, name FROM users;""")
+
+    data = cursor.fetchall()
+
+    res = []
+
+    for item in data:
+        res.append({
+            'telegram_id': item[0],
+            'name': item[1]
+        })
+
+
+    return res
+
+
+@connection_to_db
+def add_notice(cursor, telegram_id, message_id) -> None:
+    cursor.execute(f"""SELECT * FROM notices WHERE telegram_id = {telegram_id}""")
+    if not cursor.fetchall():
+        cursor.execute(f"""INSERT INTO notices (telegram_id, message_id)
+                    VALUES ({telegram_id}, '{message_id}');""")
+        return "Вы добавлены в очередь"
+    else:
+        return "Вы уже в очереди"
+
+
+@connection_to_db
+def get_notices(cursor) -> None:
+    cursor.execute("""SELECT telegram_id, message_id FROM notices;""")
+    data = cursor.fetchall()
+
+    res = []
+
+    for item in data:
+        res.append({
+            'telegram_id': item[0],
+            'message_id': item[1]
+        })
+
+
+    return str(res)
+
+
+@connection_to_db
+def delete_notices(cursor) -> None:
+    cursor.execute("""DELETE FROM notices;""")
