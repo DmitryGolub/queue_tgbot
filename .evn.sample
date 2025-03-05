@@ -1,1 +1,6 @@
 BOT_TOKEN=your_token
+DB_HOST=examle
+DB_NAME=examle
+DB_USER=examle
+DB_PASSWORD=examle
+DB_PORT=examle
