@@ -9,7 +9,8 @@ from aiogram.filters import Command
 
 from utils import validation_on_admin
 from database import add_user, get_user_by_telegram_id, add_queue, \
-    get_queue_by_chat_message_id, delete_queues_by_chat_message_id, add_users_in_queue, get_users_in_queue
+    get_queue_by_chat_message_id, delete_queues_by_chat_message_id, add_user_in_queue, get_users_in_queue, \
+    delete_user_from_queue, get_user_in_queue
 from config import BOT_TOKEN
 
 
@@ -123,31 +124,64 @@ async def join_to_queue_callback(callback: CallbackQuery):
         
         time_addition = datetime.now()
 
-        add_users_in_queue(telegram_id=telegram_id, message_id=message_id, chat_id=chat_id, time_addition=time_addition)
+        if get_user_in_queue(telegram_id=telegram_id, message_id=message_id, chat_id=chat_id):
+            await callback.answer("Вы уже в очереди")
+        else:
+            add_user_in_queue(telegram_id=telegram_id, message_id=message_id, chat_id=chat_id, time_addition=time_addition)
 
-        users_in_queue = get_users_in_queue(message_id=message_id, chat_id=chat_id)
-        queue = get_queue_by_chat_message_id(message_id=message_id, chat_id=chat_id)
-        
-        # Обновляем сообщение с очередью
-        new_text = f"{queue['title']}\n"
+            users_in_queue = get_users_in_queue(message_id=message_id, chat_id=chat_id)
+            queue = get_queue_by_chat_message_id(message_id=message_id, chat_id=chat_id)
+            
+            # Обновляем сообщение с очередью
+            new_text = f"{queue['title']}\n"
 
-        for user in users_in_queue:
-            new_text += f"{user['name']}\n"
-        
-        builder = InlineKeyboardBuilder()
-        builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
-        builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="quit_from_queue"))
-        
-        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text, reply_markup=builder.as_markup())
+            for user in users_in_queue:
+                new_text += f"{user['name']}\n"
+            
+            builder = InlineKeyboardBuilder()
+            builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
+            builder.add(InlineKeyboardButton(text="Выйти из очереди", callback_data="quit_from_queue"))
+            
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text, reply_markup=builder.as_markup())
 
-        await callback.answer("Вы добавлены в очередь")
+            await callback.answer("Вы добавлены в очередь")
     else:
         await callback.answer("Вы не зарегистрированы")
 
 
 @dp.callback_query(F.data == "quit_from_queue")
 async def quit_to_queue_callback(callback: CallbackQuery):
-    ...
+    telegram_id = callback.from_user.id
+    chat_id = callback.message.chat.id
+    message_id = callback.message.message_id
+
+    if get_user_by_telegram_id(telegram_id=telegram_id): # Проверяем, что пользователь авторизован
+
+        if get_user_in_queue(telegram_id=telegram_id, message_id=message_id, chat_id=chat_id):
+
+            delete_user_from_queue(telegram_id=telegram_id, chat_id=chat_id, message_id=message_id)
+
+            users_in_queue = get_users_in_queue(message_id=message_id, chat_id=chat_id)
+            queue = get_queue_by_chat_message_id(message_id=message_id, chat_id=chat_id)
+            
+            # Обновляем сообщение с очередью
+            new_text = f"{queue['title']}\n"
+
+            for user in users_in_queue:
+                new_text += f"{user['name']}\n"
+            
+            builder = InlineKeyboardBuilder()
+            builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
+            builder.add(InlineKeyboardButton(text="Выйти из очереди", callback_data="quit_from_queue"))
+            
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text, reply_markup=builder.as_markup())
+
+            await callback.answer("Вы вышли из очереди")
+        
+        else:
+            await callback.answer("Вас нет в очереди")
+    else:
+        await callback.answer("Вы не зарегистрированы") 
 
 
 async def main() -> None:
