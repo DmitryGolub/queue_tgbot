@@ -28,6 +28,7 @@ def connection_to_db(func):
     return wrapper
 
 
+# Создание таблиц
 @connection_to_db
 def create_tabels(cursor):
     cursor.execute("""
@@ -56,6 +57,7 @@ def create_tabels(cursor):
                    """)
 
 
+# Запросы к таблице users
 @connection_to_db
 def add_user(cursor, telegram_id: int, name: str):
     cursor.execute(f"""
@@ -76,7 +78,13 @@ def get_user_by_telegram_id(cursor, telegram_id: int) -> tuple:
     return user
 
 
-
+# Запросы к таблице queue
+@connection_to_db
+def add_queue(cursor, title: str, chat_id: int, message_id: int):
+    cursor.execute(f"""
+                   INSERT INTO queues (title, chat_id, message_id)
+                   VALUES ('{title}', {chat_id}, {message_id});
+                   """)
 
 if __name__ == "__main__":
     print('OK')

@@ -5,7 +5,8 @@ from aiogram.types.message import Message
 from aiogram.types import CallbackQuery
 from aiogram.filters import Command
 
-from database import add_user, get_user_by_telegram_id
+from utils import validation_on_admin
+from database import add_user, get_user_by_telegram_id, add_queue
 from config import BOT_TOKEN
 
 
@@ -49,13 +50,34 @@ async def register_user_command(message: Message):
             await message.answer("Вы успешно авторизовались")
 
     else: # если текста нет, возвращаем сообщение об ошибки
-        await message.reply("Укажите Имя и Фамилию. Пример: /register Иван Иванов")
+        await message.reply("Укажите Имя и Фамилию.\nПример:\n/register Иван Иванов")
     
 
 @dp.message(Command("new_queue"))
 async def new_queue_command(message: Message):
-    ...
+    telegram_id = message.from_user.id
 
+    if validation_on_admin(telegram_id):
+        # получаем текст сообщения
+        message_text = message.text
+
+        if len(message_text.split()) > 1: # если есть какой-то текст помимо команды, создаем очередь
+            title = message_text.split(maxsplit=1)[1]
+
+            # Отправляем сообщение с очередью
+            sent_message = await message.answer(f"{title}")
+            # Получаем все необходимы данные из отправленного сообщения
+            message_id = sent_message.message_id
+            chat_id = sent_message.chat.id
+
+            print(title, message_id, chat_id)
+            # Добавляем очередь в таблицу
+            add_queue(title, chat_id, message_id)
+
+        else: # если текста нет, возвращаем сообщение об ошибки
+            await message.reply("Добавье название очереди.\nПример:\n/new_queue Очередь на лабораторную")
+    else:
+        await message.answer("Вы не можете использовать эту команду")
 
 @dp.message(Command("drop_queue"))
 async def drop_queue_command(message: Message):
