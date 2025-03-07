@@ -5,8 +5,6 @@ from aiogram.types.message import Message
 from aiogram.types import CallbackQuery
 from aiogram.filters import Command
 
-from database import add_user, get_notices, add_notice, delete_notices
-from schemas import QueueLab
 from config import BOT_TOKEN
 
 
