@@ -88,7 +88,7 @@ def add_queue(cursor, title: str, chat_id: int, message_id: int):
 
 
 @connection_to_db
-def get_queues_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
+def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
     # Отправляем запрос
     cursor.execute(f"""
                    SELECT queue_id, title, chat_id, message_id FROM queues
@@ -96,18 +96,15 @@ def get_queues_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list
                    ;
                    """)
     
-    queues = cursor.fetchall()
+    queue = cursor.fetchone()
 
     # Формируем результат
-    res = []
-
-    for queue in queues:
-        res.append({
+    res = {
             'queue_id': queue[0],
             'title': queue[1],
             'chat_id': queue[2],
             'message_id': queue[3]
-        })
+        }
     
     return res
     
@@ -120,6 +117,62 @@ def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
+
+
+@connection_to_db
+def add_users_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, time_addition: str):
+    # Получаем очередь по message_id и chat_id
+    cursor.execute(f"""
+                   SELECT queue_id FROM queues
+                   WHERE chat_id = {chat_id} AND message_id = {message_id}
+                   ;
+                   """)
+
+    # Получем id очереди
+    queue_id = cursor.fetchone()[0]
+    print(queue_id)
+
+    # Добавляем пользователя в очередь
+    cursor.execute(f"""
+                   INSERT INTO users_queues (telegram_id, queue_id, time_addition)
+                   VALUES ({telegram_id}, {queue_id}, '{time_addition}'
+                   );
+                   """)
+
+
+@connection_to_db
+def get_users_in_queue(cursor, message_id: int, chat_id: int):
+    # Получаем очередь по message_id и chat_id
+    cursor.execute(f"""
+                   SELECT queue_id FROM queues
+                   WHERE chat_id = {chat_id} AND message_id = {message_id}
+                   ;
+                   """)
+
+    # Получем id очереди
+    queue_id = cursor.fetchone()[0]
+
+    # Получаем telegram_id и name пользователей
+    cursor.execute(f"""
+                   SELECT users.telegram_id, users.name FROM users_queues
+                   JOIN users ON users.telegram_id = users_queues.telegram_id
+                   JOIN queues ON queues.queue_id = users_queues.queue_id
+                   WHERE users_queues.queue_id = {queue_id}
+                   ORDER BY time_addition
+                   ;""")
+    
+    users = cursor.fetchall()
+
+    # Формируем результат
+    res = []
+
+    for user in users:
+        res.append({
+            'telegram_id': user[0],
+            'name': user[1],
+        })
+    
+    return res
 
 
 if __name__ == "__main__":

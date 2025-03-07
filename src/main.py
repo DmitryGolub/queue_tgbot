@@ -1,13 +1,15 @@
 import asyncio
+from datetime import datetime
 
 from aiogram import Dispatcher, Bot, F
 from aiogram.types.message import Message
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
 
 from utils import validation_on_admin
 from database import add_user, get_user_by_telegram_id, add_queue, \
-    get_queues_by_chat_message_id, delete_queues_by_chat_message_id
+    get_queue_by_chat_message_id, delete_queues_by_chat_message_id, add_users_in_queue, get_users_in_queue
 from config import BOT_TOKEN
 
 
@@ -66,7 +68,11 @@ async def new_queue_command(message: Message):
             title = message_text.split(maxsplit=1)[1]
 
             # Отправляем сообщение с очередью
-            sent_message = await message.answer(f"{title}")
+            builder = InlineKeyboardBuilder()
+            builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
+            builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="quit_from_queue"))
+            sent_message = await message.answer(f"{title}", reply_markup=builder.as_markup())
+
             # Получаем все необходимы данные из отправленного сообщения
             message_id = sent_message.message_id
             chat_id = sent_message.chat.id
@@ -80,6 +86,7 @@ async def new_queue_command(message: Message):
     else:
         await message.answer("Вы не можете использовать эту команду")
 
+
 @dp.message(Command("delete_queue"))
 async def delete_queue_command(message: Message):
     telegram_id = message.from_user.id
@@ -91,7 +98,7 @@ async def delete_queue_command(message: Message):
             reply_chat_id = message.reply_to_message.chat.id
 
             # Проверка, что админ ответил на сообщение с очередью
-            if get_queues_by_chat_message_id(message_id=reply_message_id, chat_id=reply_chat_id):
+            if get_queue_by_chat_message_id(message_id=reply_message_id, chat_id=reply_chat_id):
                 # Удаляем сообщение с очередью
                 await bot.delete_message(chat_id=reply_chat_id, message_id=reply_message_id)
                 # Удаляем запись из таблицы очередей
@@ -99,7 +106,6 @@ async def delete_queue_command(message: Message):
 
             else: # Ответил не на сообщение с очередью
                 await message.answer("Нужно ответить на сообщение с очередью")
-
         else:
             await message.answer("Нужно ответить на сообщение с очередью")
     else:
@@ -108,10 +114,38 @@ async def delete_queue_command(message: Message):
 
 @dp.callback_query(F.data == "join_to_queue")
 async def join_to_queue_callback(callback: CallbackQuery):
-    ...
+    telegram_id = callback.from_user.id
+    chat_id = callback.message.chat.id
+    message_id = callback.message.message_id
+    
+    
+    if get_user_by_telegram_id(telegram_id=telegram_id): # Проверяем, что пользователь авторизован
+        
+        time_addition = datetime.now()
+
+        add_users_in_queue(telegram_id=telegram_id, message_id=message_id, chat_id=chat_id, time_addition=time_addition)
+
+        users_in_queue = get_users_in_queue(message_id=message_id, chat_id=chat_id)
+        queue = get_queue_by_chat_message_id(message_id=message_id, chat_id=chat_id)
+        
+        # Обновляем сообщение с очередью
+        new_text = f"{queue['title']}\n"
+
+        for user in users_in_queue:
+            new_text += f"{user['name']}\n"
+        
+        builder = InlineKeyboardBuilder()
+        builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
+        builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="quit_from_queue"))
+        
+        await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=new_text, reply_markup=builder.as_markup())
+
+        await callback.answer("Вы добавлены в очередь")
+    else:
+        await callback.answer("Вы не зарегистрированы")
 
 
-@dp.callback_query(F.data == "quit_to_queue")
+@dp.callback_query(F.data == "quit_from_queue")
 async def quit_to_queue_callback(callback: CallbackQuery):
     ...
 
