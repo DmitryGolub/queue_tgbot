@@ -75,14 +75,16 @@ def get_user_by_telegram_id(cursor, telegram_id: int) -> dict:
                    """)
     
     user = cursor.fetchone()
+    if user:
+        user = {
+            'telegram_id': user[0],
+            'name': user[1],
+            'admin': user[2]
+        }
 
-    user = {
-        'telegram_id': user[0],
-        'name': user[1],
-        'admin': user[2]
-    }
-
-    return user
+        return user
+    else:
+        return []
 
 
 @connection_to_db
@@ -150,7 +152,6 @@ def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, t
 
     # Получем id очереди
     queue_id = cursor.fetchone()[0]
-    print(queue_id)
 
     # Добавляем пользователя в очередь
     cursor.execute(f"""

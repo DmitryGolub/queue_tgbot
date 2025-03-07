@@ -21,12 +21,7 @@ bot = Bot(token=BOT_TOKEN)
 @dp.message(Command("start"))
 async def start_command(message: Message):
     await message.answer("""
-                         Что я умею
-                         /register - регистрация пользователя
-                         /admin - стать админом
-                         Команды для админа
-                         /new_queue - создать новую очередь
-                         /delete_queue - удалить очередь""")
+                         Что я умею\n/register - регистрация пользователя\n/admin - стать админом\nКоманды для админа\n/new_queue - создать новую очередь\n/delete_queue - удалить очередь""")
 
 
 @dp.message(Command("admin"))
@@ -80,7 +75,7 @@ async def register_user_command(message: Message):
 async def new_queue_command(message: Message):
     telegram_id = message.from_user.id
 
-    if validation_on_admin(telegram_id):
+    if get_user_by_telegram_id(telegram_id=telegram_id) and validation_on_admin(telegram_id):
         # получаем текст сообщения
         message_text = message.text
 
@@ -92,7 +87,6 @@ async def new_queue_command(message: Message):
             builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="join_to_queue"))
             builder.add(InlineKeyboardButton(text="Добавиться в очередь", callback_data="quit_from_queue"))
             sent_message = await message.answer(f"{title}", reply_markup=builder.as_markup())
-
             # Получаем все необходимы данные из отправленного сообщения
             message_id = sent_message.message_id
             chat_id = sent_message.chat.id
@@ -104,15 +98,15 @@ async def new_queue_command(message: Message):
         else: # если текста нет, возвращаем сообщение об ошибки
             await message.reply("Добавье название очереди.\nПример:\n/new_queue Очередь на лабораторную")
     else:
-        await message.answer("Вы не можете использовать эту команду")
+        await message.answer("Эту команду могут использовать только админы")
 
 
 @dp.message(Command("delete_queue"))
 async def delete_queue_command(message: Message):
     telegram_id = message.from_user.id
 
-    if validation_on_admin(telegram_id): # Проверяем, что это был ответ на сообщение
-        if message.reply_to_message:
+    if get_user_by_telegram_id(telegram_id=telegram_id) and validation_on_admin(telegram_id): # Валидация на админа
+        if message.reply_to_message: # Проверяем, что это был ответ на сообщение
             # Берем нужные данне из сообщения, на которое ответили
             reply_message_id = message.reply_to_message.message_id
             reply_chat_id = message.reply_to_message.chat.id
