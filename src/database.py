@@ -68,7 +68,7 @@ def add_user(cursor, telegram_id: int, name: str):
 
 
 @connection_to_db
-def get_user_by_telegram_id(cursor, telegram_id: int) -> tuple:
+def get_user_by_telegram_id(cursor, telegram_id: int) -> dict:
     cursor.execute(f"""
                    SELECT * FROM users
                    WHERE telegram_id = {telegram_id};
@@ -76,7 +76,22 @@ def get_user_by_telegram_id(cursor, telegram_id: int) -> tuple:
     
     user = cursor.fetchone()
 
+    user = {
+        'telegram_id': user[0],
+        'name': user[1],
+        'admin': user[2]
+    }
+
     return user
+
+
+@connection_to_db
+def set_admin_user(cursor, telegram_id: int):
+    cursor.execute(f"""
+                   UPDATE users
+                   SET admin = true 
+                   WHERE telegram_id = {telegram_id}         
+;""")
 
 
 # Запросы к таблице queue

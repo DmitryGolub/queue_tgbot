@@ -10,8 +10,8 @@ from aiogram.filters import Command
 from utils import validation_on_admin
 from database import add_user, get_user_by_telegram_id, add_queue, \
     get_queue_by_chat_message_id, delete_queues_by_chat_message_id, add_user_in_queue, get_users_in_queue, \
-    delete_user_from_queue, get_user_in_queue
-from config import BOT_TOKEN
+    delete_user_from_queue, get_user_in_queue, set_admin_user
+from config import BOT_TOKEN, SECRET_ADMIN_KEY
 
 
 dp = Dispatcher()
@@ -29,9 +29,28 @@ async def start_command(message: Message):
                          /delete_queue - удалить очередь""")
 
 
-@dp.message(Command("set_admin"))
+@dp.message(Command("admin"))
 async def set_admin_command(message: Message):
-    ...
+    telegram_id = message.from_user.id
+
+    if get_user_by_telegram_id(telegram_id=telegram_id): # проверка на регистрацию
+
+        # получаем текст сообщения
+        message_text = message.text
+
+        if len(message_text.split()) > 1: # если есть какой-то текст помимо команды
+            text = message_text.split(maxsplit=1)[1]
+            if text == SECRET_ADMIN_KEY:
+                set_admin_user(telegram_id=telegram_id)
+                await message.answer("Теперь вы админ")
+            else:
+                await message.answer("Хорошая попытка")
+
+        else:
+            await message.answer("Нужно указать секретный ключ\nПример: \n/admin secret_key")
+
+    else:
+        await message.answer("Для начала нужно зарегистрироваться")
 
 
 @dp.message(Command("register"))
