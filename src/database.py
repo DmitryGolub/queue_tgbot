@@ -86,5 +86,41 @@ def add_queue(cursor, title: str, chat_id: int, message_id: int):
                    VALUES ('{title}', {chat_id}, {message_id});
                    """)
 
+
+@connection_to_db
+def get_queues_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
+    # Отправляем запрос
+    cursor.execute(f"""
+                   SELECT queue_id, title, chat_id, message_id FROM queues
+                   WHERE chat_id = {chat_id} AND message_id = {message_id}
+                   ;
+                   """)
+    
+    queues = cursor.fetchall()
+
+    # Формируем результат
+    res = []
+
+    for queue in queues:
+        res.append({
+            'queue_id': queue[0],
+            'title': queue[1],
+            'chat_id': queue[2],
+            'message_id': queue[3]
+        })
+    
+    return res
+    
+
+@connection_to_db
+def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
+    # Удаляем очереди
+    cursor.execute(f"""
+                   DELETE FROM queues
+                   WHERE chat_id = {chat_id} AND message_id = {message_id}
+                   ;
+                   """)
+
+
 if __name__ == "__main__":
     print('OK')

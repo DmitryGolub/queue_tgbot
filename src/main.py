@@ -6,7 +6,8 @@ from aiogram.types import CallbackQuery
 from aiogram.filters import Command
 
 from utils import validation_on_admin
-from database import add_user, get_user_by_telegram_id, add_queue
+from database import add_user, get_user_by_telegram_id, add_queue, \
+    get_queues_by_chat_message_id, delete_queues_by_chat_message_id
 from config import BOT_TOKEN
 
 
@@ -22,7 +23,7 @@ async def start_command(message: Message):
                          /admin - стать админом
                          Команды для админа
                          /new_queue - создать новую очередь
-                         /drop_queue - удалить очередь""")
+                         /delete_queue - удалить очередь""")
 
 
 @dp.message(Command("set_admin"))
@@ -70,7 +71,7 @@ async def new_queue_command(message: Message):
             message_id = sent_message.message_id
             chat_id = sent_message.chat.id
 
-            print(title, message_id, chat_id)
+            print("Создана очередь", title, message_id, chat_id)
             # Добавляем очередь в таблицу
             add_queue(title, chat_id, message_id)
 
@@ -79,9 +80,30 @@ async def new_queue_command(message: Message):
     else:
         await message.answer("Вы не можете использовать эту команду")
 
-@dp.message(Command("drop_queue"))
-async def drop_queue_command(message: Message):
-    ...
+@dp.message(Command("delete_queue"))
+async def delete_queue_command(message: Message):
+    telegram_id = message.from_user.id
+
+    if validation_on_admin(telegram_id): # Проверяем, что это был ответ на сообщение
+        if message.reply_to_message:
+            # Берем нужные данне из сообщения, на которое ответили
+            reply_message_id = message.reply_to_message.message_id
+            reply_chat_id = message.reply_to_message.chat.id
+
+            # Проверка, что админ ответил на сообщение с очередью
+            if get_queues_by_chat_message_id(message_id=reply_message_id, chat_id=reply_chat_id):
+                # Удаляем сообщение с очередью
+                await bot.delete_message(chat_id=reply_chat_id, message_id=reply_message_id)
+                # Удаляем запись из таблицы очередей
+                delete_queues_by_chat_message_id(chat_id=reply_chat_id, message_id=reply_message_id)
+
+            else: # Ответил не на сообщение с очередью
+                await message.answer("Нужно ответить на сообщение с очередью")
+
+        else:
+            await message.answer("Нужно ответить на сообщение с очередью")
+    else:
+        await message.answer("Эту команду могут использовать только админы")
 
 
 @dp.callback_query(F.data == "join_to_queue")
