@@ -56,6 +56,27 @@ def create_tabels(cursor):
                    """)
 
 
+@connection_to_db
+def add_user(cursor, telegram_id: int, name: str):
+    cursor.execute(f"""
+                   INSERT INTO users (telegram_id, name)
+                   VALUES ({telegram_id}, '{name}');
+                   """)
+
+
+@connection_to_db
+def get_user_by_telegram_id(cursor, telegram_id: int) -> tuple:
+    cursor.execute(f"""
+                   SELECT * FROM users
+                   WHERE telegram_id = {telegram_id};
+                   """)
+    
+    user = cursor.fetchone()
+
+    return user
+
+
+
+
 if __name__ == "__main__":
-    create_tabels()
     print('OK')
