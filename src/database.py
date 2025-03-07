@@ -17,20 +17,6 @@ def connection_to_db(func):
 
             cursor = connection.cursor()
 
-
-            cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS users (
-                           telegram_id BIGINT PRIMARY KEY,
-                           name VARCHAR(255) NOT NULL
-                           );
-                           """)
-            
-            cursor.execute("""CREATE TABLE IF NOT EXISTS notices (
-                           telegram_id BIGINT PRIMARY KEY,
-                           message_id INTEGER NOT NULL
-                           );
-                           """)
-
             return func(cursor, *args, **kwargs)
         except Exception as ex:
             print(ex)
@@ -43,65 +29,33 @@ def connection_to_db(func):
 
 
 @connection_to_db
-def add_user(cursor, telegram_id, name) -> None:
-    cursor.execute(f"""SELECT * FROM users WHERE telegram_id = {telegram_id};""")
-    if not cursor.fetchall():
-        cursor.execute(f"""
-                    INSERT INTO users (telegram_id, name)
-                    VALUES ({telegram_id}, '{name}');
-                    """)
-        return f"Вы успешно авторизовались, {name}"
+def create_tabels(cursor):
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS users (
+                   telegram_id BIGINT PRIMARY KEY,
+                   name VARCHAR(100) NOT NULL UNIQUE,
+                   admin BOOL DEFAULT false
+                   );
+                   """)
     
-    else:
-        return "Пользователь уже существует"
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS queues (
+                   queue_id SERIAL PRIMARY KEY,
+                   title VARCHAR(255) NOT NULL,
+                   chat_id BIGINT NOT NULL,
+                   message_id BIGINT NOT NULL
+                   );
+                   """)
+    
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS users_queues (
+                   queue_id BIGINT REFERENCES queues(queue_id) ON DELETE CASCADE,
+                   telegram_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
+                   time_addition TIMESTAMP
+                   );
+                   """)
 
 
-@connection_to_db
-def get_users(cursor) -> list:
-    cursor.execute(f"""SELECT telegram_id, name FROM users;""")
-
-    data = cursor.fetchall()
-
-    res = []
-
-    for item in data:
-        res.append({
-            'telegram_id': item[0],
-            'name': item[1]
-        })
-
-
-    return res
-
-
-@connection_to_db
-def add_notice(cursor, telegram_id, message_id) -> None:
-    cursor.execute(f"""SELECT * FROM notices WHERE telegram_id = {telegram_id}""")
-    if not cursor.fetchall():
-        cursor.execute(f"""INSERT INTO notices (telegram_id, message_id)
-                    VALUES ({telegram_id}, '{message_id}');""")
-        return "Вы добавлены в очередь"
-    else:
-        return "Вы уже в очереди"
-
-
-@connection_to_db
-def get_notices(cursor) -> None:
-    cursor.execute("""SELECT telegram_id, message_id FROM notices;""")
-    data = cursor.fetchall()
-
-    res = []
-
-    for item in data:
-        res.append({
-            'telegram_id': item[0],
-            'message_id': item[1]
-        })
-
-
-    return str(res)
-
-
-@connection_to_db
-def delete_notices(cursor) -> None:
-    cursor.execute("""DELETE FROM notices;""")
+if __name__ == "__main__":
+    create_tabels()
+    print('OK')
