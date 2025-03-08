@@ -1,14 +1,14 @@
 import asyncio
-import psycopg2
+import asyncpg
 
 from config import DB_HOST, DB_PORT, DB_USER, DB_NAME, DB_PASSWORD
 
 
 # Декоратор для соединения с БД
 def connection_to_db(func):
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         try:
-            connection = psycopg2.connect(
+            connection = await asyncpg.connect(
                 host=DB_HOST,
                 port=DB_PORT,
                 database=DB_NAME,
@@ -16,23 +16,19 @@ def connection_to_db(func):
                 password=DB_PASSWORD
             )
 
-            cursor = connection.cursor()
-
-            return func(cursor, *args, **kwargs)
+            return await func(connection, *args, **kwargs)
         except Exception as ex:
             print(ex)
         finally:
-            cursor.close()
-            connection.commit()
-            connection.close()
+            await connection.close()
     
     return wrapper
 
 
 # Создание таблиц
 @connection_to_db
-def create_tabels(cursor):
-    cursor.execute("""
+async def create_tabels(cursor):
+    await cursor.execute("""
                    CREATE TABLE IF NOT EXISTS users (
                    telegram_id BIGINT PRIMARY KEY,
                    name VARCHAR(100) NOT NULL UNIQUE,
@@ -40,7 +36,7 @@ def create_tabels(cursor):
                    );
                    """)
     
-    cursor.execute("""
+    await cursor.execute("""
                    CREATE TABLE IF NOT EXISTS queues (
                    queue_id SERIAL PRIMARY KEY,
                    title VARCHAR(255) NOT NULL,
@@ -49,7 +45,7 @@ def create_tabels(cursor):
                    );
                    """)
     
-    cursor.execute("""
+    await cursor.execute("""
                    CREATE TABLE IF NOT EXISTS users_queues (
                    queue_id BIGINT REFERENCES queues(queue_id) ON DELETE CASCADE,
                    telegram_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
@@ -60,36 +56,34 @@ def create_tabels(cursor):
 
 # Запросы к таблице users
 @connection_to_db
-def add_user(cursor, telegram_id: int, name: str):
-    cursor.execute(f"""
+async def add_user(cursor, telegram_id: int, name: str):
+    await cursor.execute(f"""
                    INSERT INTO users (telegram_id, name)
                    VALUES ({telegram_id}, '{name}');
                    """)
 
 
 @connection_to_db
-def get_user_by_telegram_id(cursor, telegram_id: int) -> dict:
-    cursor.execute(f"""
-                   SELECT * FROM users
+async def get_user_by_telegram_id(cursor, telegram_id: int) -> dict:
+    user = await cursor.fetchrow(f"""
+                   SELECT telegram_id, name, admin FROM users
                    WHERE telegram_id = {telegram_id};
                    """)
-    
-    user = cursor.fetchone()
     if user:
         user = {
-            'telegram_id': user[0],
-            'name': user[1],
-            'admin': user[2]
+            'telegram_id': user['telegram_id'],
+            'name': user['name'],
+            'admin': user['admin'],
         }
 
         return user
     else:
-        return []
+        return {}
 
 
 @connection_to_db
-def set_admin_user(cursor, telegram_id: int):
-    cursor.execute(f"""
+async def set_admin_user(cursor, telegram_id: int):
+    await cursor.execute(f"""
                    UPDATE users
                    SET admin = true 
                    WHERE telegram_id = {telegram_id}         
@@ -98,42 +92,40 @@ def set_admin_user(cursor, telegram_id: int):
 
 # Запросы к таблице queue
 @connection_to_db
-def add_queue(cursor, title: str, chat_id: int, message_id: int):
-    cursor.execute(f"""
+async def add_queue(cursor, title: str, chat_id: int, message_id: int):
+    await cursor.execute(f"""
                    INSERT INTO queues (title, chat_id, message_id)
                    VALUES ('{title}', {chat_id}, {message_id});
                    """)
 
 
 @connection_to_db
-def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
+async def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
     # Отправляем запрос
-    cursor.execute(f"""
+    queue = await cursor.fetchrow(f"""
                    SELECT queue_id, title, chat_id, message_id FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
-    
-    queue = cursor.fetchone()
 
     if not queue:
         return []
     else:
         # Формируем результат
         res = {
-                'queue_id': queue[0],
-                'title': queue[1],
-                'chat_id': queue[2],
-                'message_id': queue[3]
+                'queue_id': queue['queue_id'],
+                'title': queue['title'],
+                'chat_id': queue['chat_id'],
+                'message_id': queue['message_id']
             }
         
         return res
     
 
 @connection_to_db
-def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
+async def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
     # Удаляем очереди
-    cursor.execute(f"""
+    await cursor.execute(f"""
                    DELETE FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
@@ -142,19 +134,20 @@ def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
 
 # Запросы к таблице users_queues
 @connection_to_db
-def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, time_addition: str):
+async def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, time_addition: str):
     # Получаем очередь по message_id и chat_id
-    cursor.execute(f"""
+    
+    queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
-
+    
     # Получем id очереди
-    queue_id = cursor.fetchone()[0]
+    queue_id = queue['queue_id']
 
     # Добавляем пользователя в очередь
-    cursor.execute(f"""
+    await cursor.execute(f"""
                    INSERT INTO users_queues (telegram_id, queue_id, time_addition)
                    VALUES ({telegram_id}, {queue_id}, '{time_addition}'
                    );
@@ -162,89 +155,84 @@ def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, t
 
 
 @connection_to_db
-def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: int):
+async def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: int):
     # Получаем очередь по message_id и chat_id
-    cursor.execute(f"""
+    queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
-
+    
     # Получем id очереди
-    queue_id = cursor.fetchone()[0]
+    queue_id = queue['queue_id']
 
     # Получаем telegram_id и name пользователей
-    cursor.execute(f"""
+    user = await cursor.fetchrow(f"""
                    SELECT users.telegram_id, users.name FROM users_queues
                    JOIN users ON users.telegram_id = users_queues.telegram_id
                    JOIN queues ON queues.queue_id = users_queues.queue_id
                    WHERE users_queues.queue_id = {queue_id} AND users_queues.telegram_id = {telegram_id}
                    ORDER BY time_addition
                    ;""")
+    if user:
+        
+        # Формируем результат
+        res = {
+            'telegram_id': user['telegram_id'],
+            'name': user['name']
+        }
+        
+        return res
     
-    users = cursor.fetchall()
-
-    # Формируем результат
-    res = []
-
-    for user in users:
-        res.append({
-            'telegram_id': user[0],
-            'name': user[1],
-        })
-    
-    return res
+    return {}
 
 
 
 @connection_to_db
-def get_users_in_queue(cursor, message_id: int, chat_id: int):
+async def get_users_in_queue(cursor, message_id: int, chat_id: int):
     # Получаем очередь по message_id и chat_id
-    cursor.execute(f"""
+    queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
-
+    
     # Получем id очереди
-    queue_id = cursor.fetchone()[0]
+    queue_id = queue['queue_id']
 
     # Получаем telegram_id и name пользователей
-    cursor.execute(f"""
+    users = await cursor.fetch(f"""
                    SELECT users.telegram_id, users.name FROM users_queues
                    JOIN users ON users.telegram_id = users_queues.telegram_id
                    JOIN queues ON queues.queue_id = users_queues.queue_id
                    WHERE users_queues.queue_id = {queue_id}
                    ORDER BY time_addition
                    ;""")
-    
-    users = cursor.fetchall()
 
     # Формируем результат
     res = []
 
     for user in users:
         res.append({
-            'telegram_id': user[0],
-            'name': user[1],
+            'telegram_id': user['telegram_id'],
+            'name': user['name'],
         })
     
     return res
 
 
 @connection_to_db
-def delete_user_from_queue(cursor, telegram_id: int, chat_id: int, message_id: int):
+async def delete_user_from_queue(cursor, telegram_id: int, chat_id: int, message_id: int):
     # Получаем очередь по message_id и chat_id
-    cursor.execute(f"""
+    queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
                    WHERE chat_id = {chat_id} AND message_id = {message_id}
                    ;
                    """)
-
     # Получем id очереди
-    queue_id = cursor.fetchone()[0]
+    queue_id = queue['queue_id']
 
-    cursor.execute(f"""
+    await cursor.execute(f"""
                    DELETE FROM users_queues
                    WHERE telegram_id = {telegram_id} AND queue_id = {queue_id}
                    ;
