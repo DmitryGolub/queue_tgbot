@@ -1,4 +1,4 @@
-from database import get_user_by_telegram_id
+from database.database import get_user_by_telegram_id
 
 
 async def validation_on_admin(telegram_id: int) -> bool:
