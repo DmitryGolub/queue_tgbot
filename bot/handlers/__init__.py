@@ -6,7 +6,7 @@ from .register import router as register_router
 from .start import router as start_router
 
 
-def register_all_handlers(dp: Dispatcher):
+def register_all_handlers(dp: Dispatcher) -> None:
     dp.include_routers(
         admin_router,
         delete_queue_router,

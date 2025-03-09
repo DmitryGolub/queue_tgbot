@@ -13,7 +13,7 @@ router = Router()
 
 
 @router.message(Command("new_queue"))
-async def new_queue_command(message: Message):
+async def new_queue_command(message: Message) -> None:
     telegram_id = message.from_user.id
 
     if await get_user_by_telegram_id(telegram_id=telegram_id) and await validation_on_admin(telegram_id):

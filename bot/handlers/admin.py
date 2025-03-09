@@ -11,7 +11,7 @@ router = Router()
 
 
 @router.message(Command("admin"))
-async def set_admin_command(message: Message):
+async def set_admin_command(message: Message) -> None:
     telegram_id = message.from_user.id
 
     if await get_user_by_telegram_id(telegram_id=telegram_id): # проверка на регистрацию

@@ -27,7 +27,7 @@ def connection_to_db(func):
 
 # Создание таблиц
 @connection_to_db
-async def create_tabels(cursor):
+async def create_tabels(cursor) -> None:
     await cursor.execute("""
                    CREATE TABLE IF NOT EXISTS users (
                    telegram_id BIGINT PRIMARY KEY,
@@ -56,7 +56,7 @@ async def create_tabels(cursor):
 
 # Запросы к таблице users
 @connection_to_db
-async def add_user(cursor, telegram_id: int, name: str):
+async def add_user(cursor, telegram_id: int, name: str) -> None:
     await cursor.execute(f"""
                    INSERT INTO users (telegram_id, name)
                    VALUES ({telegram_id}, '{name}');
@@ -82,7 +82,7 @@ async def get_user_by_telegram_id(cursor, telegram_id: int) -> dict:
 
 
 @connection_to_db
-async def set_admin_user(cursor, telegram_id: int):
+async def set_admin_user(cursor, telegram_id: int) -> None:
     await cursor.execute(f"""
                    UPDATE users
                    SET admin = true 
@@ -92,7 +92,7 @@ async def set_admin_user(cursor, telegram_id: int):
 
 # Запросы к таблице queue
 @connection_to_db
-async def add_queue(cursor, title: str, chat_id: int, message_id: int):
+async def add_queue(cursor, title: str, chat_id: int, message_id: int) -> None:
     await cursor.execute(f"""
                    INSERT INTO queues (title, chat_id, message_id)
                    VALUES ('{title}', {chat_id}, {message_id});
@@ -100,7 +100,7 @@ async def add_queue(cursor, title: str, chat_id: int, message_id: int):
 
 
 @connection_to_db
-async def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict]:
+async def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) -> list[dict] | None:
     # Отправляем запрос
     queue = await cursor.fetchrow(f"""
                    SELECT queue_id, title, chat_id, message_id FROM queues
@@ -108,9 +108,7 @@ async def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) ->
                    ;
                    """)
 
-    if not queue:
-        return []
-    else:
+    if queue:
         # Формируем результат
         res = {
                 'queue_id': queue['queue_id'],
@@ -121,9 +119,11 @@ async def get_queue_by_chat_message_id(cursor, chat_id: int, message_id: int) ->
         
         return res
     
+    return None
+    
 
 @connection_to_db
-async def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int):
+async def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int) -> None:
     # Удаляем очереди
     await cursor.execute(f"""
                    DELETE FROM queues
@@ -134,7 +134,7 @@ async def delete_queues_by_chat_message_id(cursor, chat_id: int, message_id: int
 
 # Запросы к таблице users_queues
 @connection_to_db
-async def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, time_addition: str):
+async def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: int, time_addition: str) -> None:
     # Получаем очередь по message_id и chat_id
     
     queue = await cursor.fetchrow(f"""
@@ -155,7 +155,7 @@ async def add_user_in_queue(cursor, telegram_id: int, chat_id: int, message_id: 
 
 
 @connection_to_db
-async def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: int):
+async def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: int) -> dict | None:
     # Получаем очередь по message_id и chat_id
     queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
@@ -175,7 +175,6 @@ async def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: 
                    ORDER BY time_addition
                    ;""")
     if user:
-        
         # Формируем результат
         res = {
             'telegram_id': user['telegram_id'],
@@ -184,12 +183,12 @@ async def get_user_in_queue(cursor, telegram_id: int, message_id: int, chat_id: 
         
         return res
     
-    return {}
+    return None
 
 
 
 @connection_to_db
-async def get_users_in_queue(cursor, message_id: int, chat_id: int):
+async def get_users_in_queue(cursor, message_id: int, chat_id: int) -> list[dict]:
     # Получаем очередь по message_id и chat_id
     queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues
@@ -222,7 +221,7 @@ async def get_users_in_queue(cursor, message_id: int, chat_id: int):
 
 
 @connection_to_db
-async def delete_user_from_queue(cursor, telegram_id: int, chat_id: int, message_id: int):
+async def delete_user_from_queue(cursor, telegram_id: int, chat_id: int, message_id: int) -> None:
     # Получаем очередь по message_id и chat_id
     queue = await cursor.fetchrow(f"""
                    SELECT queue_id FROM queues

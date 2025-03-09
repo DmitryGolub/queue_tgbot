@@ -10,7 +10,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "quit_from_queue")
-async def quit_to_queue_callback(callback: CallbackQuery):
+async def quit_to_queue_callback(callback: CallbackQuery) -> None:
     telegram_id = callback.from_user.id
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id

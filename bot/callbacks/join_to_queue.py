@@ -11,7 +11,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "join_to_queue")
-async def join_to_queue_callback(callback: CallbackQuery):
+async def join_to_queue_callback(callback: CallbackQuery) -> None:
     telegram_id = callback.from_user.id
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id

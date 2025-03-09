@@ -10,7 +10,7 @@ router = Router()
 
 
 @router.message(Command("register"))
-async def register_user_command(message: Message):
+async def register_user_command(message: Message) -> None:
     # получаем telegram_id
     telegram_id = message.from_user.id
 

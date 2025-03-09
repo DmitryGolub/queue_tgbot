@@ -9,10 +9,13 @@ readme = "README.md"
 python = "^3.12"
 aiogram = "^3.18.0"
 python-dotenv = "^1.0.1"
-psycopg2-binary = "^2.9.10"
 asyncpg = "^0.30.0"
 pydantic = "^2.10.6"
 pydantic-settings = "^2.8.1"
+psycopg = "^3.2.5"
+psycopg-binary = "^3.2.5"
+sqlalchemy = "^2.0.38"
+alembic = "^1.15.1"
 
 
 [build-system]
