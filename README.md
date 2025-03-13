@@ -1,1 +1,1 @@
-```poetry run python3 src/main.py```
+```poetry run python3 bot/main.py```
